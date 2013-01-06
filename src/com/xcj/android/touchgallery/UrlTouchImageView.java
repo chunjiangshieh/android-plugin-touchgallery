@@ -22,19 +22,32 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.AsyncTask;
 import android.util.AttributeSet;
+import android.util.Log;
+import android.view.View;
+import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.RelativeLayout;
+import android.widget.TextView;
 
 import java.io.BufferedInputStream;
 import java.io.InputStream;
 import java.net.URL;
 import java.net.URLConnection;
 
+import com.xcj.android.net.download.image.ImageCacheMgr.ImageCallBack;
+import com.xcj.android.touchgallery.asyncdownload.AsyncImageCacheMgr;
+
 public class UrlTouchImageView extends RelativeLayout {
+	
+	private static final String TAG = UrlTouchImageView.class.getSimpleName();
+	
     protected ProgressBar mProgressBar;
     protected TouchImageView mImageView;
+    protected TextView mTextView;
 
     protected Context mContext;
+    //Async Download Image Manager
+    protected AsyncImageCacheMgr mAsyncImageCacheMgr;
 
     public UrlTouchImageView(Context ctx)
     {
@@ -58,19 +71,128 @@ public class UrlTouchImageView extends RelativeLayout {
         this.addView(mImageView);
         mImageView.setVisibility(GONE);
 
-        mProgressBar = new ProgressBar(mContext, null, android.R.attr.progressBarStyleHorizontal);
-        params = new LayoutParams(LayoutParams.FILL_PARENT, LayoutParams.WRAP_CONTENT);
-        params.addRule(RelativeLayout.CENTER_VERTICAL);
-        params.setMargins(30, 0, 30, 0);
+        mProgressBar = new ProgressBar(mContext, null, android.R.attr.progressBarStyleLargeInverse);
+        params = new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+        params.addRule(RelativeLayout.CENTER_IN_PARENT);
+//        params.setMargins(30, 0, 30, 0);
         mProgressBar.setLayoutParams(params);
         mProgressBar.setIndeterminate(true);
         this.addView(mProgressBar);
+        
+        mTextView = new TextView(mContext);
+        params = new LayoutParams(LayoutParams.WRAP_CONTENT,
+        		LayoutParams.WRAP_CONTENT);
+        params.addRule(RelativeLayout.CENTER_IN_PARENT);
+        mTextView.setTextSize(20.0f);
+        mTextView.setLayoutParams(params);
+        
+        this.addView(mTextView);
+        
+        mAsyncImageCacheMgr = AsyncImageCacheMgr.getInstance(mContext);
+    }
+    
+    /**
+     * 设置缩略图
+     * @param filePath
+     */
+    public void setUrlAndThumbnail(String imageUrl,String filePath){
+    	Bitmap bitmap = mAsyncImageCacheMgr.getGalleryBitmap(imageUrl);
+    	if(bitmap != null){
+    		 mImageView.setImageBitmap(bitmap);
+             mImageView.setVisibility(VISIBLE);
+             mProgressBar.setVisibility(GONE);
+             mTextView.setVisibility(GONE);
+    	}else{
+    		if(filePath != null && !filePath.equals("")){
+    			Bitmap thumbBitmap = BitmapFactory.decodeFile(filePath);
+            	if(thumbBitmap != null){
+            		mImageView.setVisibility(View.VISIBLE);
+            		mImageView.setImageBitmap(thumbBitmap);  
+            	}
+    		}
+    	
+    		mAsyncImageCacheMgr.downloadGalleryBitmap(imageUrl,
+    				new AsyncImageCallBack(mImageView, 
+    						mProgressBar,
+    						mTextView,
+    						imageUrl));
+    	}
+    	
+    	
     }
 
-    public void setUrl(String imageUrl)
-    {
-        new ImageLoadTask().execute(imageUrl);
+    public void setUrl(String imageUrl){
+    	Bitmap bitmap = mAsyncImageCacheMgr.getGalleryBitmap(imageUrl);
+    	if(bitmap != null){
+    		 mImageView.setImageBitmap(bitmap);
+             mImageView.setVisibility(VISIBLE);
+             mProgressBar.setVisibility(GONE);
+             mTextView.setVisibility(GONE);
+    	}else{
+    		mAsyncImageCacheMgr.downloadGalleryBitmap(imageUrl,
+    				new AsyncImageCallBack(mImageView, 
+    						mProgressBar,
+    						mTextView,
+    						imageUrl));
+    	}
+//        new ImageLoadTask().execute(imageUrl);
     }
+    
+    class AsyncImageCallBack implements ImageCallBack{
+    	private ImageView mGalleryIV;
+    	private ProgressBar mDownloadPB;
+    	private TextView mProgressTV;
+    	
+    	public AsyncImageCallBack(ImageView imageView,
+    			ProgressBar progressBar,
+    			TextView textView,
+    			String url){
+    		this.mGalleryIV = imageView;
+    		this.mDownloadPB = progressBar;
+    		this.mProgressTV = textView;
+    		mGalleryIV.setTag(url);
+    		mDownloadPB.setTag(url);
+    		mProgressTV.setTag(url);
+    	}
+    	
+		@Override
+		public void onGetImage(Bitmap bitmap, String url) {
+//			Log.d(TAG, "onGetImage url:"+url);
+			if(mGalleryIV.getTag().equals(url)&&mDownloadPB.getTag().equals(url)){
+				if(bitmap != null){
+					mGalleryIV.setImageBitmap(bitmap);
+				}else{
+					mGalleryIV.setImageResource(R.drawable.ic_launcher);
+				}
+				mGalleryIV.setVisibility(VISIBLE);
+				mDownloadPB.setVisibility(GONE);
+				mProgressTV.setVisibility(GONE);
+			}
+		}
+
+		@Override
+		public void onGetError(String url) {
+			if(mGalleryIV.getTag().equals(url)&&mDownloadPB.getTag().equals(url)){
+//				Log.d(TAG, "onGetError url:"+url);
+				mGalleryIV.setImageResource(R.drawable.ic_launcher);
+				mGalleryIV.setVisibility(VISIBLE);
+				mDownloadPB.setVisibility(GONE);
+				mProgressTV.setVisibility(GONE);
+			}
+		}
+
+		@Override
+		public void onUpdateProgress(String url,int progress) {
+			if(mProgressTV.getTag().equals(url)&&mDownloadPB.getTag().equals(url)){
+//				Log.d(TAG, "onUpdateProgress progress:"+progress);
+				mDownloadPB.setProgress(progress);
+				mProgressTV.setText(progress+"%");
+			}
+			
+		}
+    	
+    }
+    
     //No caching load
     public class ImageLoadTask extends AsyncTask<String, Integer, Bitmap>
     {

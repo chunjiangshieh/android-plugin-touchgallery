@@ -50,7 +50,8 @@ public class UrlPagerAdapter extends PagerAdapter {
     @Override
     public Object instantiateItem(View collection, int position){
         UrlTouchImageView iv = new UrlTouchImageView(mContext);
-        iv.setUrl(mResources.get(position));
+//        iv.setUrl(mResources.get(position));
+        iv.setUrlAndThumbnail(mResources.get(position), "/mnt/sdcard/tgram/image/text_small.png");
         iv.setLayoutParams(new Gallery.LayoutParams(ViewGroup.LayoutParams.FILL_PARENT, ViewGroup.LayoutParams.FILL_PARENT));
         ((ViewPager) collection).addView(iv, 0);
         return iv;
