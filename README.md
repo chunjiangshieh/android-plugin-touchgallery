@@ -1,0 +1,2 @@
+android-plugin-touchgallery
+一个Android相框的插件，可以实现从网络上下载图片并展示
